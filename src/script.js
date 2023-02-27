@@ -1,130 +1,67 @@
-import * as THREE from 'three'
+import * as THREE from 'three';
+import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import { Tween } from '@tweenjs/tween.js';
 
-// Set up the scene, camera, and renderer
-const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
 const renderer = new THREE.WebGLRenderer();
 renderer.setSize(window.innerWidth, window.innerHeight);
 document.body.appendChild(renderer.domElement);
 
-// Create a grid helper to represent the world plane
-// const gridHelper = new THREE.GridHelper(10, 10);
-// scene.add(gridHelper);
+const scene = new THREE.Scene();
 
-// Create three cubes: red, green, and blue
-const redCube = new THREE.Mesh(
-  new THREE.BoxGeometry(1, 1, 1),
-  new THREE.MeshBasicMaterial({ color: 0xff0000 })
+const camera = new THREE.PerspectiveCamera(
+    45,
+    window.innerWidth / window.innerHeight,
+    0.1,
+    1000
 );
-const greenCube = new THREE.Mesh(
-  new THREE.BoxGeometry(1, 1, 1),
-  new THREE.MeshBasicMaterial({ color: 0x00ff00 })
+camera.position.set(10, 15, -22);
+
+const orbit = new OrbitControls(camera, renderer.domElement);
+orbit.update();
+
+const planeMesh = new THREE.Mesh(
+    new THREE.PlaneGeometry(20, 20),
+    new THREE.MeshBasicMaterial({
+        side: THREE.DoubleSide,
+        visible: false,
+    })
 );
-const blueCube = new THREE.Mesh(
-  new THREE.BoxGeometry(1, 1, 1),
-  new THREE.MeshBasicMaterial({ color: 0x0000ff })
-);
+planeMesh.rotateX(-Math.PI / 2);
+scene.add(planeMesh);
 
-// Position the cubes in separate locations
-redCube.position.set(-2, 0, 0);
-greenCube.position.set(0, 2, 0);
-blueCube.position.set(2, 0, 0);
+const grid = new THREE.GridHelper(20, 20);
+scene.add(grid);
 
-// Add the cubes to the scene
-scene.add(redCube);
-scene.add(greenCube);
-scene.add(blueCube);
+const cubeGeometry = new THREE.BoxGeometry(1, 1, 5);
+const cubeMaterial = new THREE.MeshBasicMaterial({ color: 0xD9D2E9 });
+const cubeMesh = new THREE.Mesh(cubeGeometry, cubeMaterial);
+scene.add(cubeMesh);
 
-// Add event listeners for mouse events
-let mouseDown = false;
-let mouseX = 0;
-let mouseY = 0;
-let selectedCube = null;
+function rotateCube() {
+    cubeMesh.rotateY(0.02);
 
-document.addEventListener('mousedown', (event) => {
-  mouseDown = true;
-  mouseX = event.clientX;
-  mouseY = event.clientY;
-
-  const raycaster = new THREE.Raycaster();
-  const mouse = new THREE.Vector2();
-
-  // Convert the mouse coordinates to normalized device coordinates
-  mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-  mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
-
-  // Use the raycaster to find the selected cube
-  raycaster.setFromCamera(mouse, camera);
-  const intersects = raycaster.intersectObjects([redCube, greenCube, blueCube]);
-  if (intersects.length > 0) {
-    selectedCube = intersects[0].object;
-  }
-});
-
-document.addEventListener('mouseup', () => {
-  mouseDown = false;
-  selectedCube = null;
-});
-
-document.addEventListener('mousemove', (event) => {
-  if (!mouseDown) return;
-
-  const deltaX = event.clientX - mouseX;
-  const deltaY = event.clientY - mouseY;
-
-  if (selectedCube === redCube) {
-    redCube.rotation.x += deltaY * 0.01;
-    redCube.rotation.y += deltaX * 0.01;
-
-    // Fade out the cube's material with each rotation
-    redCube.material.opacity -= 0.01;
-    if (redCube.material.opacity <= 0) {
-      // Remove the cube from the scene when it has completely faded out
-      scene.remove(redCube);
+    const fragments = [];
+    for (let i = 0; i < 10; i++) {
+        const fragment = cubeMesh.clone();
+        fragment.material = cubeMaterial.clone(); // Need to clone material as well to avoid changing the original
+        fragment.position.x += Math.random() * 10 - 5;
+        fragment.position.y += Math.random() * 10 + 1;
+        fragment.position.z += Math.random() * 10 - 5;
+        fragments.push(fragment);
+        scene.add(fragment);
     }
-  } else if (selectedCube === greenCube) {
-    greenCube.rotation.x += deltaY * 0.01;
-    greenCube.rotation.y += deltaX * 0.01;
 
-    // Fade out the cube's material with each rotation
-    greenCube.material.opacity -= 0.01;
-    if (greenCube.material.opacity <= 0) {
-      // Remove the cube from the scene when it has completely faded out
-      scene.remove(greenCube);
-    }
-  } else if (selectedCube === blueCube) {
-    blueCube.rotation.x += deltaY * 0.01;
-    blueCube.rotation.y += deltaX * 0.01;
-   
-    // Fade out the cube's material with each rotation
-    blueCube.material.opacity -= 0.01;
-   
-    if (blueCube.material.opacity <= 0) {
-  // Remove the cube from the scene when it has completely faded out
-  scene.remove(blueCube);
+    for (const fragment of fragments) {
+        new Tween(fragment.material)
+            .to({ opacity: 0 }, 1000)
+            .onComplete(() => scene.remove(fragment))
+            .start();
     }
 }
 
-mouseX = event.clientX;
-mouseY = event.clientY;
-});
-
-document.addEventListener('wheel', (event) => {
-// Zoom in or out depending on the direction of the scroll
-const zoomFactor = event.deltaY > 0 ? 1.1 : 0.9;
-camera.position.z *= zoomFactor;
-});
-
-// Set the camera position and look at the center of the scene
-camera.position.z = 5;
-camera.lookAt(scene.position);
-
-// Define the animate function to update the scene
 function animate() {
-requestAnimationFrame(animate);
-
-renderer.render(scene, camera);
+    requestAnimationFrame(animate);
+    rotateCube();
+    renderer.render(scene, camera);
 }
-
-// Call the animate function to start the animation loop
 animate();
