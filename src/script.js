@@ -2,7 +2,7 @@ import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import * as dat from 'lil-gui'
 import * as CANNON from 'cannon-es'
-import { TransformControls } from 'three/addons/controls/TransformControls.js'
+import { TransformControls } from 'three/examples/jsm/controls/TransformControls.js';
 
 //object
 const gui = new dat.GUI()
@@ -11,7 +11,7 @@ const objectsToUpdate = [];
 
 Object.Box = () =>
 {
-    Box(
+    const box = Box(
         //box size
         1,
         1,
@@ -22,8 +22,16 @@ Object.Box = () =>
             y: 3,
             z: (Math.random() - 0.5) * 3
         }
-    )
+    );
+    Object.box = box; // add the mesh object to the object property
+    box.userData = { type: 'box', body: boxBody }; // set the type of the object and its Cannon.js body to the userData property of the mesh object
+    scene.add(box); // add the mesh object to the scene
+
+    transformControls.attach(box);
+    objectsToUpdate.push(transformControls); // add transform controls to objectsToUpdate array
+
 }
+
 gui.add(Object, 'Box')
 
 Object.Sphere = () =>
@@ -54,8 +62,11 @@ Object.reset = () =>
 
         // Remove mesh
         scene.remove(object.mesh)
+
+        //remove control widgets
+        transformControls.detach()
     }
-    
+
     objectsToUpdate.splice(0, objectsToUpdate.length)
 }
 gui.add(Object, 'reset')
@@ -89,7 +100,6 @@ renderer.shadowMap.type = THREE.PCFSoftShadowMap
 renderer.setSize(sizes.width, sizes.height)
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
 
-
 /**
  * Camera
  */
@@ -108,14 +118,20 @@ let enableMouseDrag = false;
 
 // transform 
 const transformControls = new TransformControls(camera, renderer.domElement);
+transformControls.mode = 'translate'; // set the mode to 'translate'
 scene.add(transformControls);
 
-//addobject
-function addObject(body, mesh) {
-    objectsToUpdate.push({ body, mesh });
-    scene.add(mesh);
-    world.addBody(body);
-}
+transformControls.addEventListener('dragging-changed', function (event) {
+    orbit.enabled = !event.value; // disable orbit controls when dragging
+    enableMouseDrag = event.value; // set enableMouseDrag to true when dragging starts, false otherwise
+});
+
+transformControls.addEventListener('objectChange', function (event) {
+    if (enableMouseDrag && event.target.userData.type === 'box') { // check if the object is a box and dragging is enabled
+        event.target.userData.body.position.copy(event.target.position); // set the position of the box's Cannon.js body to the position of the transformControls object
+        event.target.userData.body.quaternion.copy(event.target.quaternion); // set the rotation of the box's Cannon.js body to the rotation of the transformControls object
+    }
+});
 
 
 /**
@@ -165,6 +181,12 @@ const defaultContactMaterial = new CANNON.ContactMaterial(
 )
 world.defaultContactMaterial = defaultContactMaterial
 
+function render() {
+    requestAnimationFrame(render);
+    renderer.render(scene, camera);
+}
+
+
 // Floor
 const floorShape = new CANNON.Plane()
 const floorBody = new CANNON.Body()
@@ -174,7 +196,7 @@ floorBody.quaternion.setFromAxisAngle(new CANNON.Vec3(- 1, 0, 0), Math.PI * 0.5)
 world.addBody(floorBody)
 
 
-
+//resize window
 window.addEventListener('resize', () =>
 {
     // Update sizes
@@ -228,6 +250,13 @@ const Sphere = (radius, position) =>
 
     // Save in objects
     objectsToUpdate.push({ mesh, body })
+
+    // Add transform control
+    const control = new THREE.TransformControls(camera, renderer.domElement);
+    control.attach(mesh);
+    scene.add(control);
+
+    return { mesh, body, control };
 }
 
 // Create box
@@ -241,64 +270,63 @@ const boxMaterial = new THREE.MeshStandardMaterial({
 
 
 //box
-function Box (width, height, depth, position)
-{
+function Box(width, height, depth, position) {
     // Three.js mesh
-    const mesh = new THREE.Mesh(boxGeometry, boxMaterial)
-    const transformcontrol = new TransformControls(camera, renderer.domElement)
-    transformcontrol.attach(mesh)
-    mesh.scale.set(width, height, depth)
-    mesh.castShadow = true
-    mesh.position.copy(position)
-    scene.add(mesh)
+    const mesh = new THREE.Mesh(boxGeometry, boxMaterial);
+    const transformcontrol = new TransformControls(camera, renderer.domElement);
+    transformcontrol.attach(mesh);
+    mesh.scale.set(width, height, depth);
+    mesh.castShadow = true;
+    mesh.position.copy(position);
+    scene.add(mesh);
 
-    transformcontrol.addEventListener( 'dragging-changed', function ( event ) {
+    transformcontrol.addEventListener('dragging-changed', function (event) {
+        orbit.enabled = !event.value;
+    });
 
-        orbit.enabled = ! event.value;
+    transformcontrol.attach(mesh);
+    scene.add(transformcontrol);
 
-    } );
+    transformcontrol.addEventListener('change', function () {
+        render();
+    });
 
-    transformcontrol.attach( mesh );
-    scene.add( transformcontrol );
+    window.addEventListener('resize', onWindowResize);
 
-    window.addEventListener( 'resize', onWindowResize );
-
-    window.addEventListener( 'keydown', function ( event ) {
-
-        switch ( event.keyCode ) {
-
+    window.addEventListener('keydown', function (event) {
+        switch (event.keyCode) {
             case 81: // Q
-                transformcontrol.setSpace( transformcontrol.space === 'local' ? 'world' : 'local' );
+                transformcontrol.setSpace(transformcontrol.space === 'local' ? 'world' : 'local');
                 break;
 
             case 16: // Shift
-                transformcontrol.setTranslationSnap( 100 );
-                transformcontrol.setRotationSnap( THREE.MathUtils.degToRad( 15 ) );
-                transformcontrol.setScaleSnap( 0.25 );
+                transformcontrol.setTranslationSnap(100);
+                transformcontrol.setRotationSnap(THREE.MathUtils.degToRad(15));
+                transformcontrol.setScaleSnap(0.25);
                 break;
 
             case 87: // W
-                transformcontrol.setMode( 'translate' );
+                transformcontrol.setMode('translate');
                 break;
 
             case 69: // E
-                transformcontrol.setMode( 'rotate' );
+                transformcontrol.setMode('rotate');
                 break;
 
             case 82: // R
-                transformcontrol.setMode( 'scale' );
+                transformcontrol.setMode('scale');
                 break;
 
             case 67: // C
                 const position = currentCamera.position.clone();
 
                 currentCamera = currentCamera.isPerspectiveCamera ? cameraOrtho : cameraPersp;
-                currentCamera.position.copy( position );
+                currentCamera.position.copy(position);
 
                 orbit.object = currentCamera;
                 transformcontrol.camera = currentCamera;
 
-                currentCamera.lookAt( orbit.target.x, orbit.target.y, orbit.target.z );
+                currentCamera.lookAt(orbit.target.x, orbit.target.y, orbit.target.z);
                 onWindowResize();
                 break;
 
@@ -307,7 +335,7 @@ function Box (width, height, depth, position)
                 const randomZoom = Math.random() + 0.1;
 
                 cameraPersp.fov = randomFoV * 160;
-                cameraOrtho.bottom = - randomFoV * 500;
+                cameraOrtho.bottom = -randomFoV * 500;
                 cameraOrtho.top = randomFoV * 500;
 
                 cameraPersp.zoom = randomZoom * 5;
@@ -317,54 +345,47 @@ function Box (width, height, depth, position)
 
             case 187:
             case 107: // +, =, num+
-                transformcontrol.setSize( transformcontrol.size + 0.1 );
+                transformcontrol.setSize(transformcontrol.size + 0.1);
                 break;
 
             case 189:
             case 109: // -, _, num-
-                transformcontrol.setSize( Math.max( transformcontrol.size - 0.1, 0.1 ) );
+                transformcontrol.setSize(Math.max(transformcontrol.size - 0.1, 0.1));
                 break;
 
             case 88: // X
-                transformcontrol.showX = ! transformcontrol.showX;
+                transformcontrol.showX = !transformcontrol.showX;
                 break;
 
             case 89: // Y
-                transformcontrol.showY = ! transformcontrol.showY;
+                transformcontrol.showY = !transformcontrol.showY;
                 break;
 
             case 90: // Z
-                transformcontrol.showZ = ! transformcontrol.showZ;
+                transformcontrol.showZ = !transformcontrol.showZ;
                 break;
 
             case 32: // Spacebar
-                transformcontrol.enabled = ! transformcontrol.enabled;
+                transformcontrol.enabled = !transformcontrol.enabled;
                 break;
 
             case 27: // Esc
                 transformcontrol.reset();
                 break;
-
         }
+    });
 
-    } );
-
-    window.addEventListener( 'keyup', function ( event ) {
-
-        switch ( event.keyCode ) {
-
+    window.addEventListener('keyup', function (event) {
+        switch (event.keyCode) {
             case 16: // Shift
-                transformcontrol.setTranslationSnap( null );
-                transformcontrol.setRotationSnap( null );
-                transformcontrol.setScaleSnap( null );
+                transformcontrol.setTranslationSnap(null);
+                transformcontrol.setRotationSnap(null);
+                transformcontrol.setScaleSnap(null);
                 break;
-
         }
-
-    } );
+    });
 
     function onWindowResize() {
-
         const aspect = window.innerWidth / window.innerHeight;
 
         cameraPersp.aspect = aspect;
@@ -421,7 +442,7 @@ function Box (width, height, depth, position)
             body.position.set(mesh.position.x, mesh.position.y, mesh.position.z);
     
             lastMousePosition.set(event.clientX, event.clientY)
-            r
+            
         }
     })
     
@@ -429,6 +450,7 @@ function Box (width, height, depth, position)
         isDragging = false
     })
 
+    return mesh;
     
 }
 
