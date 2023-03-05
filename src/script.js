@@ -5,7 +5,7 @@ import * as dat from 'lil-gui'
 import * as CANNON from 'cannon-es'
 
 let cameraPersp, cameraOrtho, currentCamera;
-let scene, renderer, controlbox1, controlbox2, orbit;
+let scene, renderer, orbit;
 
 // init();
 // render();
@@ -23,9 +23,13 @@ Object.Box = () =>
         [Math.random() * 1000,
             Math.random() * 1000,
             1000
+
+            
             ]
             ,200,200,200,
             concreteTexture)
+    
+    
 
 }
 gui.add(Object, 'Box')
@@ -41,7 +45,7 @@ Object.reset = () =>
         world.removeBody(object.body)
 
         // Remove mesh
-        scene.remove(object.mesh)
+        scene.remove(object.box)
     }
     
     objectsToUpdate.splice(0, objectsToUpdate.length)
@@ -135,82 +139,31 @@ const playHitSound = (collision) =>
     light.position.set(1, 1, 1);
     scene.add(light);
 
+    //load different material texture
+
+    //eggshell
+    const eggshellTexture = new THREE.TextureLoader().load('eggshell.jpg', render);
+    eggshellTexture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+
+    //concrete
     const concreteTexture = new THREE.TextureLoader().load('concrete.jpg', render);
     concreteTexture.anisotropy = renderer.capabilities.getMaxAnisotropy();
-
-    //box class 
-    const newBox = ([x,y,z],width, height, depth, material)=>{
-        const boxgeometry = new THREE.BoxGeometry(width, height, depth);
-        const boxmaterial = new THREE.MeshLambertMaterial({
-            map: material,
-            transparent: true
-        });
-        const box = new THREE.Mesh(boxgeometry, boxmaterial);
-        //position
-        box.position.x =x;
-        box.position.y =y;
-        box.position.z =z;
-
-        // box.scale.set(width, height, depth)
-        // box.castShadow = true
-        box.position.copy(x,y,z)
-        scene.add(box)
-        
-
-        // Cannon.js body
-        const shape = new CANNON.Box(new CANNON.Vec3(width * 0.5, height * 0.5, depth * 0.5))
-
-        const body = new CANNON.Body({
-        mass: 1,
-        position: new CANNON.Vec3(x, y, z),
-        shape: shape,
-        material: defaultMaterial
-        });
-        body.addEventListener('collide', playHitSound);
-         world.addBody(body);
-
-         // Save in objects
-        objectsToUpdate.push({ box, body });
-        return box;
-    }
-
-    //box1 
-    const box1 = newBox([200,200,200],200,200,200,concreteTexture);
-
-    // //box2
-    const box2 = newBox([100,400,400],200,200,200,concreteTexture);
 
     orbit = new OrbitControls(currentCamera, renderer.domElement);
     orbit.update();
     orbit.addEventListener('change', render);
 
-    //controlbox1
-    controlbox1 = new TransformControls(currentCamera, renderer.domElement);
-    controlbox1.addEventListener('change', render);
+    // Create transform controls
+    const transformControls = new TransformControls(currentCamera, renderer.domElement);
+    
+    transformControls.addEventListener('change', render);
 
-    controlbox1.addEventListener('dragging-changed', function (event) {
-
-        orbit.enabled = !event.value;
-
-    });
-
-    //controlbox2
-    controlbox2 = new TransformControls(currentCamera, renderer.domElement);
-    controlbox2.addEventListener('change', render);
-
-    controlbox2.addEventListener('dragging-changed', function (event) {
+    transformControls.addEventListener('dragging-changed', function (event) {
 
         orbit.enabled = !event.value;
 
     });
-
-    scene.add(box1);
-    scene.add(box2);
-
-    controlbox1.attach(box1);
-    controlbox2.attach(box2);
-    scene.add(controlbox1);
-    scene.add(controlbox2);
+    scene.add(transformControls);
 
     window.addEventListener('resize', onWindowResize);
 
@@ -219,25 +172,25 @@ const playHitSound = (collision) =>
         switch (event.keyCode) {
 
             case 81: // Q
-                controlbox1.setSpace(controlbox1.space === 'local' ? 'world' : 'local');
+                transformControls.setSpace(transformControls.space === 'local' ? 'world' : 'local');
                 break;
 
             case 16: // Shift
-                controlbox1.setTranslationSnap(100);
-                controlbox1.setRotationSnap(THREE.MathUtils.degToRad(15));
-                controlbox1.setScaleSnap(0.25);
+                transformControls.setTranslationSnap(100);
+                transformControls.setRotationSnap(THREE.MathUtils.degToRad(15));
+                transformControls.setScaleSnap(0.25);
                 break;
 
             case 87: // W
-                controlbox1.setMode('translate');
+                transformControls.setMode('translate');
                 break;
 
             case 69: // E
-                controlbox1.setMode('rotate');
+                transformControls.setMode('rotate');
                 break;
 
             case 82: // R
-                controlbox1.setMode('scale');
+                transformControls.setMode('scale');
                 break;
 
             case 67: // C
@@ -247,7 +200,7 @@ const playHitSound = (collision) =>
                 currentCamera.position.copy(position);
 
                 orbit.object = currentCamera;
-                controlbox1.camera = currentCamera;
+                transformControls.camera = currentCamera;
 
                 currentCamera.lookAt(orbit.target.x, orbit.target.y, orbit.target.z);
                 onWindowResize();
@@ -268,35 +221,37 @@ const playHitSound = (collision) =>
 
             case 187:
             case 107: // +, =, num+
-                controlbox1.setSize(controlbox1.size + 0.1);
+                transformControls.setSize(transformControls.size + 0.1);
                 break;
 
             case 189:
             case 109: // -, _, num-
-                controlbox1.setSize(Math.max(controlbox1.size - 0.1, 0.1));
+                transformControls.setSize(Math.max(transformControls.size - 0.1, 0.1));
                 break;
 
             case 88: // X
-                controlbox1.showX = !controlbox1.showX;
+                transformControls.showX = !transformControls.showX;
                 break;
 
             case 89: // Y
-                controlbox1.showY = !controlbox1.showY;
+                transformControls.showY = !transformControls.showY;
                 break;
 
             case 90: // Z
-                controlbox1.showZ = !controlbox1.showZ;
+                transformControls.showZ = !transformControls.showZ;
                 break;
 
             case 32: // Spacebar
-                controlbox1.enabled = !controlbox1.enabled;
+                transformControls.enabled = !transformControls.enabled;
                 break;
 
             case 27: // Esc
-                controlbox1.reset();
+                transformControls.reset();
                 break;
 
         }
+
+
 
     });
 
@@ -305,14 +260,101 @@ const playHitSound = (collision) =>
         switch (event.keyCode) {
 
             case 16: // Shift
-                controlbox1.setTranslationSnap(null);
-                controlbox1.setRotationSnap(null);
-                controlbox1.setScaleSnap(null);
+                transformControls.setTranslationSnap(null);
+                transformControls.setRotationSnap(null);
+                transformControls.setScaleSnap(null);
                 break;
 
         }
+        // Enable OrbitControls when no longer dragging
+    orbit.enabled = !transformControls.dragging;
 
     });
+
+    
+
+    //box class 
+    const newBox = ([x,y,z],width, height, depth, material)=>{
+        const boxgeometry = new THREE.BoxGeometry(width, height, depth);
+        const boxmaterial = new THREE.MeshLambertMaterial({
+            map: material,
+            transparent: true
+        });
+        const box = new THREE.Mesh(boxgeometry, boxmaterial);
+        //position
+        box.position.x =x;
+        box.position.y =y;
+        box.position.z =z;
+
+        // box.scale.set(width, height, depth)
+        // box.castShadow = true
+        box.position.copy(x,y,z);
+        scene.add(box);
+
+        
+
+        // Attach transform controls to box mesh
+        transformControls.attach(box);
+        scene.add(transformControls);
+        transformControls.updateMatrixWorld();
+
+        // Cannon.js body
+        const shape = new CANNON.Box(new CANNON.Vec3(width * 0.5, height * 0.5, depth * 0.5))
+
+        const body = new CANNON.Body({
+        mass: 1,
+        position: new CANNON.Vec3(x, y, z),
+        shape: shape,
+        material: defaultMaterial
+        });
+        body.addEventListener('collide', playHitSound);
+         world.addBody(body);
+
+         
+
+         // Save in objects
+        objectsToUpdate.push({ box, body });
+        return box;
+    }
+
+    //box1 
+    const box1 = newBox([200,200,100],200,200,200,eggshellTexture);
+
+
+    // box2
+    const box2 = newBox([600,200,100],200,200,200,concreteTexture);
+
+    // box3
+    const box3 = newBox([400,300,100],200,200,200,concreteTexture);
+
+    // orbit = new OrbitControls(currentCamera, renderer.domElement);
+    // orbit.update();
+    // orbit.addEventListener('change', render);
+
+    // //controlbox1
+    // controlbox1 = new TransformControls(currentCamera, renderer.domElement);
+    // controlbox1.addEventListener('change', render);
+
+    // controlbox1.addEventListener('dragging-changed', function (event) {
+
+    //     orbit.enabled = !event.value;
+
+    // });
+
+    // //controlbox2
+    // controlbox2 = new TransformControls(currentCamera, renderer.domElement);
+    // controlbox2.addEventListener('change', render);
+
+    // controlbox2.addEventListener('dragging-changed', function (event) {
+
+    //     orbit.enabled = !event.value;
+
+    // });
+
+    scene.add(box1);
+    scene.add(box2);
+
+
 
 // }
 
@@ -353,21 +395,24 @@ const tick = () =>
     oldElapsedTime = elapsedTime
 
     // Update physics
-    world.step(1 / 360, deltaTime, 3)
+    world.step(1/3600, deltaTime, 3)
     
     for(const object of objectsToUpdate)
     {
         object.box.position.copy(object.body.position)
         object.box.quaternion.copy(object.body.quaternion)
-        controlbox1.position.copy(object.box.position)
+        
     }
 
     // Update controls
-    orbit.update();
 
-    // controlbox1.update()
-    // controlbox2.reset()
-    
+    //orbit update allows new boxes to be dispersed 
+    // orbit.update();
+
+    //use when you want to move the block, this is a massive glitch
+    //orbit and transform control is competing for the camera
+    transformControls.update();
+
     // Render
     renderer.render(scene, currentCamera);
 
