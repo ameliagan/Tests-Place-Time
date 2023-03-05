@@ -20,13 +20,11 @@ const Object = {}
 Object.Box = () =>
 {
     newBox(
-        [Math.random() * 1000,
-            Math.random() * 1000,
-            1000
-            ]
+        [(Math.random() - 0.5) * 3,
+            0,
+            (Math.random() - 0.5) * 3]
             ,200,200,200,
             concreteTexture)
-
 }
 gui.add(Object, 'Box')
 
@@ -165,17 +163,17 @@ const playHitSound = (collision) =>
         position: new CANNON.Vec3(x, y, z),
         shape: shape,
         material: defaultMaterial
-        });
-        body.addEventListener('collide', playHitSound);
-         world.addBody(body);
+        })
+        body.addEventListener('collide', playHitSound)
+         world.addBody(body)
 
          // Save in objects
-        objectsToUpdate.push({ box, body });
+        objectsToUpdate.push({ box, body })
         return box;
     }
 
     //box1 
-    const box1 = newBox([200,200,200],200,200,200,concreteTexture);
+    const box1 = newBox([0,0,0],200,200,200,concreteTexture);
 
     // //box2
     const box2 = newBox([100,400,400],200,200,200,concreteTexture);
@@ -334,6 +332,8 @@ function onWindowResize() {
 
 }
 
+
+
 function render() {
 
     renderer.render(scene, currentCamera);
@@ -353,26 +353,22 @@ const tick = () =>
     oldElapsedTime = elapsedTime
 
     // Update physics
-    world.step(1 / 360, deltaTime, 3)
+    world.step(1 / 60, deltaTime, 3)
     
     for(const object of objectsToUpdate)
     {
         object.box.position.copy(object.body.position)
         object.box.quaternion.copy(object.body.quaternion)
-        controlbox1.position.copy(object.box.position)
     }
 
     // Update controls
-    orbit.update();
+    controls.update()
 
-    // controlbox1.update()
-    // controlbox2.reset()
-    
     // Render
-    renderer.render(scene, currentCamera);
+    renderer.render(scene, camera)
 
     // Call tick again on the next frame
-    window.requestAnimationFrame(tick);
+    window.requestAnimationFrame(tick)
 }
 
 tick()
