@@ -5,45 +5,28 @@ import * as dat from 'lil-gui'
 import * as CANNON from 'cannon-es'
 
 let cameraPersp, cameraOrtho, currentCamera;
-let scene, renderer, control, orbit;
+let scene, renderer, controlbox1, controlbox2, orbit;
 
-init();
-render();
+// init();
+// render();
 
 const gui = new dat.GUI()
+const objectsToUpdate = [];
+const Object = {}
+
+//newBox([0,0,0],200,200,200,concreteTexture)
 
 //object 
 Object.Box = () =>
 {
-    Box(
-        //box size
-        1,
-        1,
-        1,
-        {
-            //random position
-            x: (Math.random() - 0.5) * 3,
-            y: 3,
-            z: (Math.random() - 0.5) * 3
-        }
-    )
+    newBox(
+        [(Math.random() - 0.5) * 3,
+            0,
+            (Math.random() - 0.5) * 3]
+            ,200,200,200,
+            concreteTexture)
 }
 gui.add(Object, 'Box')
-
-Object.Sphere = () =>
-{
-    Sphere(
-        //sphere size
-        .15,
-        {
-            //random position
-            x: (Math.random() - 0.5) * 3,
-            y: 3,
-            z: (Math.random() - 0.5) * 3
-        }
-    )
-}
-gui.add(Object, 'Sphere')
 
 
 // Reset
@@ -125,7 +108,8 @@ const playHitSound = (collision) =>
     }
 }
 
-function init() {
+
+// function init() {
 
     renderer = new THREE.WebGLRenderer();
     renderer.setPixelRatio(window.devicePixelRatio);
@@ -149,44 +133,82 @@ function init() {
     light.position.set(1, 1, 1);
     scene.add(light);
 
-    const texture = new THREE.TextureLoader().load('concrete.jpg', render);
-    texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+    const concreteTexture = new THREE.TextureLoader().load('concrete.jpg', render);
+    concreteTexture.anisotropy = renderer.capabilities.getMaxAnisotropy();
 
-    //box geometry 
-    const boxgeometry = new THREE.BoxGeometry(200, 200, 200);
-    const boxmaterial = new THREE.MeshLambertMaterial({
-        map: texture,
-        transparent: true
-    });
+    //box class 
+    const newBox = ([x,y,z],width, height, depth, material)=>{
+        const boxgeometry = new THREE.BoxGeometry(width, height, depth);
+        const boxmaterial = new THREE.MeshLambertMaterial({
+            map: material,
+            transparent: true
+        });
+        const box = new THREE.Mesh(boxgeometry, boxmaterial);
+        //position
+        box.position.x =x;
+        box.position.y =y;
+        box.position.z =z;
 
-    //box2 geometry
-    const boxgeometry2 = new THREE.BoxGeometry(200, 200, 200);
-    const boxmaterial2 = new THREE.MeshLambertMaterial({
-        map: texture,
-        transparent: true
-    });
+        // box.scale.set(width, height, depth)
+        // box.castShadow = true
+        box.position.copy(x,y,z)
+        scene.add(box)
+        
+
+        // Cannon.js body
+        const shape = new CANNON.Box(new CANNON.Vec3(width * 0.5, height * 0.5, depth * 0.5))
+
+        const body = new CANNON.Body({
+        mass: 1,
+        position: new CANNON.Vec3(x, y, z),
+        shape: shape,
+        material: defaultMaterial
+        })
+        body.addEventListener('collide', playHitSound)
+         world.addBody(body)
+
+         // Save in objects
+        objectsToUpdate.push({ box, body })
+        return box;
+    }
+
+    //box1 
+    const box1 = newBox([0,0,0],200,200,200,concreteTexture);
+
+    // //box2
+    const box2 = newBox([100,400,400],200,200,200,concreteTexture);
 
     orbit = new OrbitControls(currentCamera, renderer.domElement);
     orbit.update();
     orbit.addEventListener('change', render);
 
-    control = new TransformControls(currentCamera, renderer.domElement);
-    control.addEventListener('change', render);
+    //controlbox1
+    controlbox1 = new TransformControls(currentCamera, renderer.domElement);
+    controlbox1.addEventListener('change', render);
 
-    control.addEventListener('dragging-changed', function (event) {
+    controlbox1.addEventListener('dragging-changed', function (event) {
 
         orbit.enabled = !event.value;
 
     });
 
-    const boxmesh = new THREE.Mesh(boxgeometry, boxmaterial);
-    const boxmesh2 = new THREE.Mesh(boxgeometry2, boxmaterial2);
-    scene.add(boxmesh);
-    scene.add(boxmesh2);
+    //controlbox2
+    controlbox2 = new TransformControls(currentCamera, renderer.domElement);
+    controlbox2.addEventListener('change', render);
 
-    control.attach(boxmesh);
-    control.attach(boxmesh2);
-    scene.add(control);
+    controlbox2.addEventListener('dragging-changed', function (event) {
+
+        orbit.enabled = !event.value;
+
+    });
+
+    scene.add(box1);
+    scene.add(box2);
+
+    controlbox1.attach(box1);
+    controlbox2.attach(box2);
+    scene.add(controlbox1);
+    scene.add(controlbox2);
 
     window.addEventListener('resize', onWindowResize);
 
@@ -195,25 +217,25 @@ function init() {
         switch (event.keyCode) {
 
             case 81: // Q
-                control.setSpace(control.space === 'local' ? 'world' : 'local');
+                controlbox1.setSpace(controlbox1.space === 'local' ? 'world' : 'local');
                 break;
 
             case 16: // Shift
-                control.setTranslationSnap(100);
-                control.setRotationSnap(THREE.MathUtils.degToRad(15));
-                control.setScaleSnap(0.25);
+                controlbox1.setTranslationSnap(100);
+                controlbox1.setRotationSnap(THREE.MathUtils.degToRad(15));
+                controlbox1.setScaleSnap(0.25);
                 break;
 
             case 87: // W
-                control.setMode('translate');
+                controlbox1.setMode('translate');
                 break;
 
             case 69: // E
-                control.setMode('rotate');
+                controlbox1.setMode('rotate');
                 break;
 
             case 82: // R
-                control.setMode('scale');
+                controlbox1.setMode('scale');
                 break;
 
             case 67: // C
@@ -223,7 +245,7 @@ function init() {
                 currentCamera.position.copy(position);
 
                 orbit.object = currentCamera;
-                control.camera = currentCamera;
+                controlbox1.camera = currentCamera;
 
                 currentCamera.lookAt(orbit.target.x, orbit.target.y, orbit.target.z);
                 onWindowResize();
@@ -244,32 +266,32 @@ function init() {
 
             case 187:
             case 107: // +, =, num+
-                control.setSize(control.size + 0.1);
+                controlbox1.setSize(controlbox1.size + 0.1);
                 break;
 
             case 189:
             case 109: // -, _, num-
-                control.setSize(Math.max(control.size - 0.1, 0.1));
+                controlbox1.setSize(Math.max(controlbox1.size - 0.1, 0.1));
                 break;
 
             case 88: // X
-                control.showX = !control.showX;
+                controlbox1.showX = !controlbox1.showX;
                 break;
 
             case 89: // Y
-                control.showY = !control.showY;
+                controlbox1.showY = !controlbox1.showY;
                 break;
 
             case 90: // Z
-                control.showZ = !control.showZ;
+                controlbox1.showZ = !controlbox1.showZ;
                 break;
 
             case 32: // Spacebar
-                control.enabled = !control.enabled;
+                controlbox1.enabled = !controlbox1.enabled;
                 break;
 
             case 27: // Esc
-                control.reset();
+                controlbox1.reset();
                 break;
 
         }
@@ -281,16 +303,16 @@ function init() {
         switch (event.keyCode) {
 
             case 16: // Shift
-                control.setTranslationSnap(null);
-                control.setRotationSnap(null);
-                control.setScaleSnap(null);
+                controlbox1.setTranslationSnap(null);
+                controlbox1.setRotationSnap(null);
+                controlbox1.setScaleSnap(null);
                 break;
 
         }
 
     });
 
-}
+// }
 
 function onWindowResize() {
 
@@ -317,3 +339,36 @@ function render() {
     renderer.render(scene, currentCamera);
 
 }
+
+/**
+ * Animate
+ */
+const clock = new THREE.Clock()
+let oldElapsedTime = 0
+
+const tick = () =>
+{
+    const elapsedTime = clock.getElapsedTime()
+    const deltaTime = elapsedTime - oldElapsedTime
+    oldElapsedTime = elapsedTime
+
+    // Update physics
+    world.step(1 / 60, deltaTime, 3)
+    
+    for(const object of objectsToUpdate)
+    {
+        object.box.position.copy(object.body.position)
+        object.box.quaternion.copy(object.body.quaternion)
+    }
+
+    // Update controls
+    controls.update()
+
+    // Render
+    renderer.render(scene, camera)
+
+    // Call tick again on the next frame
+    window.requestAnimationFrame(tick)
+}
+
+tick()
