@@ -403,21 +403,20 @@ scene.add(directionalLight)
         }
     
     //box1 
-    const box1 = newBox([200,200,100],200,200,200,eggshellTexture);
+    const box1 = newBox([200,100,100],200,200,200,eggshellTexture);
 
 
     // box2
-    const box2 = newBox([600,200,100],200,200,200,concreteTexture);
+    const box2 = newBox([200,100,600],200,200,200,concreteTexture);
 
-    // // box3
-    // const box3 = newBox([400,200,100],200,200,2000,concreteTexture);
+    // box3
+    const box3 = newBox([400,100,200],200,200,200,concreteTexture);
 
-    // // box4
-    // const box4 = newBox([800,200,100],200,200,2000,concreteTexture);
+    // box4
+    const box4 = newBox([400,100,800],200,200,200,concreteTexture);
 
-    
-    // // box5
-    // const box5 = newBox([1000,200,100],200,200,200,concreteTexture);
+    // box5
+    const box5 = newBox([1000,100,1000],200,200,200,concreteTexture);
 
 
     // orbit = new OrbitControls(currentCamera, renderer.domElement);
@@ -451,8 +450,15 @@ scene.add(directionalLight)
 
 // }
 
-//fog 
-scene.fog = new THREE.Fog(0X424242,1000,50)
+//fog brown ish
+// scene.fog = new THREE.Fog(0XFF00FF,5000,1000)
+// scene.fog = new THREE.FogExp2( 0xefd1b5, 0.00025 );
+
+//green fog - mold? 
+const fogColor = new THREE.Color(0x00af00);
+scene.background = fogColor;
+scene.fog = new THREE.FogExp2(fogColor, 0.0005);
+
 
 function onWindowResize() {
 
