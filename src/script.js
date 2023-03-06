@@ -3,9 +3,12 @@ import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
 import {TransformControls} from 'three/addons/controls/TransformControls.js';
 import * as dat from 'lil-gui'
 import * as CANNON from 'cannon-es'
+import { Sky } from 'three/addons/objects/Sky.js';
 
 let cameraPersp, cameraOrtho, currentCamera;
 let scene, renderer, orbit;
+
+let sky, sun;
 
 // init();
 // render();
@@ -16,16 +19,14 @@ const Object = {}
 
 //newBox([0,0,0],200,200,200,concreteTexture)
 
+
 //object 
 Object.Box = () =>
 {
     newBox(
         [Math.random() * 1000,
-            Math.random() * 1000,
-            1000
-
-            
-            ]
+            100,
+            Math.random() * 1000,]
             ,200,200,200,
             concreteTexture)
     
@@ -70,6 +71,9 @@ world.gravity.set(0, - 9.82, 0)
 
 // Default material
 const defaultMaterial = new CANNON.Material('default')
+
+const eggshellMaterial = new CANNON.Material('eggshell')
+
 const defaultContactMaterial = new CANNON.ContactMaterial(
     defaultMaterial,
     defaultMaterial,
@@ -78,7 +82,17 @@ const defaultContactMaterial = new CANNON.ContactMaterial(
         restitution: 0.7
     }
 )
+
+
 world.defaultContactMaterial = defaultContactMaterial
+
+const cubeTextureLoader = new THREE.CubeTextureLoader()
+
+const environmentMapTexture = cubeTextureLoader.load([
+    'concrete.jpg',
+])
+
+
 
 // Floor
 const floorShape = new CANNON.Plane()
@@ -87,6 +101,7 @@ floorBody.mass = 0
 floorBody.addShape(floorShape)
 floorBody.quaternion.setFromAxisAngle(new CANNON.Vec3(- 1, 0, 0), Math.PI * 0.5) 
 world.addBody(floorBody)
+
 
 
 /**
@@ -120,6 +135,9 @@ const playHitSound = (collision) =>
     renderer = new THREE.WebGLRenderer();
     renderer.setPixelRatio(window.devicePixelRatio);
     renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.outputEncoding = THREE.sRGBEncoding;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 0.5;
     document.body.appendChild(renderer.domElement);
 
     const aspect = window.innerWidth / window.innerHeight;
@@ -133,11 +151,34 @@ const playHitSound = (collision) =>
 
     //grid
     scene = new THREE.Scene();
-    scene.add(new THREE.GridHelper(100000, 100, 0x888888, 0x444444));
+    scene.add(new THREE.GridHelper(100000, 100, 0x424242, 0x424242));
 
-    const light = new THREE.DirectionalLight(0xffffff, 2);
-    light.position.set(1, 1, 1);
-    scene.add(light);
+    initSky();
+    // const ambientLight = new THREE.AmbientLight( 0xffffff );
+    // scene.add( ambientLight );
+
+    // const light = new THREE.DirectionalLight(0xffffff, 1);
+    // // light.intensity = 1; // Increase intensity
+    // light.position.set(1, 1, 1);
+    // scene.add(light);
+
+    /**
+ * Lights
+ */
+const ambientLight = new THREE.AmbientLight(0xffffff, 0.7)
+scene.add(ambientLight)
+
+
+const directionalLight = new THREE.DirectionalLight(0xffffff, 0.2)
+directionalLight.castShadow = true
+directionalLight.shadow.mapSize.set(200, 200)
+directionalLight.shadow.camera.far = 15
+directionalLight.shadow.camera.left = - 7
+directionalLight.shadow.camera.top = 7
+directionalLight.shadow.camera.right = 7
+directionalLight.shadow.camera.bottom = - 7
+directionalLight.position.set(100,100, 100)
+scene.add(directionalLight)
 
     //load different material texture
 
@@ -305,7 +346,7 @@ const playHitSound = (collision) =>
         mass: 1,
         position: new CANNON.Vec3(x, y, z),
         shape: shape,
-        material: defaultMaterial
+        material: defaultContactMaterial
         });
         body.addEventListener('collide', playHitSound);
          world.addBody(body);
@@ -317,6 +358,50 @@ const playHitSound = (collision) =>
         return box;
     }
 
+        //eggshell box class 
+        const eggshellBox = ([x,y,z],width, height, depth, material)=>{
+            const boxgeometry = new THREE.BoxGeometry(width, height, depth);
+            const boxmaterial = new THREE.MeshLambertMaterial({
+                map: material,
+                transparent: true
+            });
+            const eggshellbox = new THREE.Mesh(boxgeometry, boxmaterial);
+            //position
+            box.position.x =x;
+            box.position.y =y;
+            box.position.z =z;
+    
+            // box.scale.set(width, height, depth)
+            // box.castShadow = true
+            eggshellbox.position.copy(x,y,z);
+            scene.add(box);
+    
+            
+    
+            // Attach transform controls to box mesh
+            transformControls.attach(box);
+            scene.add(transformControls);
+            transformControls.updateMatrixWorld();
+    
+            // Cannon.js body
+            const shape = new CANNON.Box(new CANNON.Vec3(width * 0.5, height * 0.5, depth * 0.5))
+    
+            const body = new CANNON.Body({
+            mass: 1,
+            position: new CANNON.Vec3(x, y, z),
+            shape: shape,
+            material: defaultMaterial
+            });
+            body.addEventListener('collide', playHitSound);
+             world.addBody(body);
+    
+             
+    
+             // Save in objects
+            objectsToUpdate.push({ box, body });
+            return box;
+        }
+    
     //box1 
     const box1 = newBox([200,200,100],200,200,200,eggshellTexture);
 
@@ -324,8 +409,16 @@ const playHitSound = (collision) =>
     // box2
     const box2 = newBox([600,200,100],200,200,200,concreteTexture);
 
-    // box3
-    const box3 = newBox([400,300,100],200,200,200,concreteTexture);
+    // // box3
+    // const box3 = newBox([400,200,100],200,200,2000,concreteTexture);
+
+    // // box4
+    // const box4 = newBox([800,200,100],200,200,2000,concreteTexture);
+
+    
+    // // box5
+    // const box5 = newBox([1000,200,100],200,200,200,concreteTexture);
+
 
     // orbit = new OrbitControls(currentCamera, renderer.domElement);
     // orbit.update();
@@ -358,6 +451,9 @@ const playHitSound = (collision) =>
 
 // }
 
+//fog 
+scene.fog = new THREE.Fog(0X424242,1000,50)
+
 function onWindowResize() {
 
     const aspect = window.innerWidth / window.innerHeight;
@@ -373,6 +469,62 @@ function onWindowResize() {
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
 
     render();
+
+}
+
+//sky
+function initSky() {
+
+    // Add Sky
+    sky = new Sky();
+    sky.scale.setScalar( 450000 );
+    scene.add( sky );
+
+    sun = new THREE.Vector3();
+
+    /// GUI
+
+    const effectController = {
+        turbidity: 10,
+        rayleigh: 3,
+        mieCoefficient: 0.005,
+        mieDirectionalG: 0.7,
+        elevation: 2,
+        azimuth: 180,
+        exposure: renderer.toneMappingExposure
+    };
+
+    function guiChanged() {
+
+        const uniforms = sky.material.uniforms;
+        uniforms[ 'turbidity' ].value = effectController.turbidity;
+        uniforms[ 'rayleigh' ].value = effectController.rayleigh;
+        uniforms[ 'mieCoefficient' ].value = effectController.mieCoefficient;
+        uniforms[ 'mieDirectionalG' ].value = effectController.mieDirectionalG;
+
+        const phi = THREE.MathUtils.degToRad( 90 - effectController.elevation );
+        const theta = THREE.MathUtils.degToRad( effectController.azimuth );
+
+        sun.setFromSphericalCoords( 1, phi, theta );
+
+        uniforms[ 'sunPosition' ].value.copy( sun );
+
+        renderer.toneMappingExposure = effectController.exposure;
+        renderer.render( scene, currentCamera );
+
+    }
+
+
+
+    gui.add( effectController, 'turbidity', 0.0, 20.0, 0.1 ).onChange( guiChanged );
+    gui.add( effectController, 'rayleigh', 0.0, 4, 0.001 ).onChange( guiChanged );
+    gui.add( effectController, 'mieCoefficient', 0.0, 0.1, 0.001 ).onChange( guiChanged );
+    gui.add( effectController, 'mieDirectionalG', 0.0, 1, 0.001 ).onChange( guiChanged );
+    gui.add( effectController, 'elevation', 0, 90, 0.1 ).onChange( guiChanged );
+    gui.add( effectController, 'azimuth', - 180, 180, 0.1 ).onChange( guiChanged );
+    gui.add( effectController, 'exposure', 0, 1, 0.0001 ).onChange( guiChanged );
+
+    guiChanged();
 
 }
 
